@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111111">
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>WebNovel Voice Reader — Fixed Controls</title>
+<style>
+  :root{
+    --panel-width:92%;
+    --bg:#ffffff; --panel:#ffffff; --card:#f5f5f6; --text:#0b0b0b; --muted:#666;
+    --accent:#111; --radius:12px; --control-size:56px;
+    --editor-font-size:16px;
+  }
+  [data-variant="sepia"]{ --bg:#fbf0e6; --panel:#fff8f0; --card:#fff6f0; --text:#2b2b25; --muted:#6c6156; --accent:#2b2b25; }
+  [data-variant="hc"]{ --bg:#ffffff; --panel:#ffffff; --card:#ffffff; --text:#000000; --muted:#222; --accent:#000; }
+  [data-theme="dark"]{ --bg:#0b0b0c; --panel:#101213; --card:#0f1112; --text:#efefef; --muted:#9aa0a2; --accent:#f5f5f5; }
+
+  *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial; -webkit-font-smoothing:antialiased}
+  html,body{height:100%;margin:0;background:linear-gradient(var(--bg),#e9eef8);color:var(--text);padding:12px}
+  [data-theme="dark"] body{ background:linear-gradient(#0b0b0c,#0a0a0b) }
+
+  .outer{min-height:100vh;display:flex;align-items:flex-start;justify-content:center}
+  .panel{width:var(--panel-width);max-width:980px;background:var(--panel);border-radius:14px;padding:12px;box-shadow:0 8px 24px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.04)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+  h1{margin:0;font-size:16px}
+  .sub{font-size:13px;color:var(--muted)}
+
+  /* unified editor/reader */
+  #editor{width:100%;min-height:220px;padding:12px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);background:transparent;color:var(--text);font-size:var(--editor-font-size);line-height:1.6;overflow:auto}
+  #editor .line{padding:10px;border-radius:8px;margin-bottom:8px;cursor:pointer}
+  #editor .line:hover{background:rgba(0,0,0,0.03)}
+  #editor .line.current{background:linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.02));border-left:4px solid var(--accent);padding-left:12px}
+  #rawArea{display:none;width:100%;min-height:220px;padding:12px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);background:transparent;color:var(--text);font-size:var(--editor-font-size);line-height:1.6;resize:vertical}
+
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  .control-btn{padding:10px 12px;border-radius:10px;border:none;background:var(--card);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,0.06);color:var(--accent);font-weight:700}
+  .control-btn.ghost{background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--muted)}
+  .small-select{padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);background:transparent;color:var(--text)}
+  .num{width:86px;padding:8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);background:transparent;text-align:center;color:var(--text)}
+
+  .big-buttons{display:flex;gap:12px;align-items:center;justify-content:center}
+  .big-btn{width:64px;height:64px;border-radius:12px;border:none;background:var(--card);box-shadow:0 8px 24px rgba(0,0,0,0.08);display:inline-flex;align-items:center;justify-content:center;font-size:20px;color:var(--accent);cursor:pointer}
+  .big-btn.ghost{background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--muted)}
+
+  .settings{display:flex;flex-direction:column;gap:8px;margin-left:auto;min-width:240px}
+  .setting-row{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .muted-center{display:block;text-align:center;color:var(--muted);font-size:13px;margin-top:8px}
+
+  /* sticky bottom bar */
+  .sticky {
+    position:fixed; left:8px; right:8px; bottom:10px;
+    display:flex; align-items:center; gap:10px; justify-content:center;
+    background:var(--panel); border-radius:12px; padding:8px 12px; box-shadow:0 12px 28px rgba(0,0,0,0.18); z-index:9999;
+    transform: translateY(0); transition:transform .18s ease-out,opacity .18s; opacity:1;
+  }
+  .sticky .small { color:var(--muted); font-size:13px; margin-left:12px }
+  .sticky .pin{margin-left:auto;border-radius:8px;padding:6px 8px}
+
+  .panel-control{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+  .panel-control input[type=range]{width:150px}
+
+  @media (max-width:720px){
+    .panel{width:98vw;padding:10px}
+    .big-btn{width:72px;height:72px;font-size:22px}
+    .sticky{left:6px;right:6px;bottom:8px}
+  }
+
+  footer{margin-top:10px;text-align:center;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body data-theme="" data-variant="">
+  <div class="outer">
+    <div class="panel" id="panel">
+
+      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <h1>WebNovel Voice Reader</h1>
+          <div class="sub">Unified panel — paste or fetch here. Click paragraphs to read.</div>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="small">Panel</div>
+          <input id="panelWidth" type="range" min="60" max="100" value="92" />
+          <div id="panelPct" class="small">92%</div>
+        </div>
+      </div>
+
+      <!-- unified editor/reader -->
+      <div id="editor" contenteditable="true" role="textbox" aria-label="Paste text or URL here"></div>
+      <textarea id="rawArea" placeholder="Raw text editor (edit then press Render)"></textarea>
+
+      <div class="controls" style="margin-top:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="fetchBtn" class="control-btn ghost">Fetch</button>
+          <select id="siteSelect" class="small-select">
+            <option value="auto">Auto extractor</option>
+            <option value="webnovel">WebNovel</option>
+            <option value="royalroad">RoyalRoad</option>
+            <option value="scribblehub">ScribbleHub</option>
+            <option value="wuxiaworld">WuxiaWorld</option>
+          </select>
+          <div id="fetchStatus" class="small" style="margin-left:6px">Idle</div>
+        </div>
+
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <button id="editToggle" class="control-btn ghost">Edit</button>
+          <button id="renderBtn" class="control-btn ghost" style="display:none">Render</button>
+          <select id="variantSelect" class="small-select" title="Theme variant">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="sepia">Sepia</option>
+            <option value="hc">High-contrast</option>
+          </select>
+          <div class="small">Font</div>
+          <input id="fontSize" type="range" min="14" max="26" value="16" style="width:120px" />
+          <div id="fontLabel" class="small">16px</div>
+        </div>
+      </div>
+
+      <!-- main playback -->
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-top:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:260px">
+          <div class="big-buttons" style="margin-bottom:10px">
+            <button id="prevBtn" class="big-btn ghost" title="Prev">⏮</button>
+            <button id="playBtn" class="big-btn" title="Play">▶</button>
+            <button id="pauseBtn" class="big-btn ghost" title="Pause">❚❚</button>
+            <button id="stopBtn" class="big-btn ghost" title="Stop">■</button>
+            <button id="nextBtn" class="big-btn ghost" title="Next">⏭</button>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="voiceSelect" class="small-select" style="min-width:220px"></select>
+            <button id="sampleBtn" class="control-btn ghost">Test Sample</button>
+            <div id="playerStatus" class="small" style="margin-left:auto">Idle</div>
+          </div>
+        </div>
+
+        <div class="settings" style="min-width:240px">
+          <div class="setting-row">
+            <div class="muted">Speed</div>
+            <div style="display:flex;gap:8px;align-items:center;width:100%">
+              <input id="rateRange" type="range" min="0.50" max="4.00" step="0.01" value="1.00" style="flex:1" />
+              <input id="rateNum" class="num" type="number" min="0.50" max="4.00" step="0.01" value="1.00" />
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="muted">Pitch</div>
+            <div style="display:flex;gap:8px;align-items:center;width:100%">
+              <input id="pitchRange" type="range" min="0.50" max="2.00" step="0.01" value="1.00" style="flex:1" />
+              <input id="pitchNum" class="num" type="number" min="0.50" max="2.00" step="0.01" value="1.00" />
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="muted">Presets</div>
+            <div style="display:flex;gap:8px">
+              <select id="speedPreset" class="small-select">
+                <option value="">Choose</option>
+                <option value="0.75">0.75x</option>
+                <option value="1.00">1.00x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.50">1.50x</option>
+                <option value="2.00">2.00x</option>
+                <option value="3.00">3.00x</option>
+                <option value="4.00">4.00x</option>
+              </select>
+              <button id="applyPreset" class="control-btn ghost">Apply</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="muted-center">Tap a paragraph (in the same panel) to start. Use Edit to modify raw text, then Render to re-split.</div>
+      <footer class="small" style="margin-top:8px;color:var(--muted);text-align:center">Client-only demo — some fetches blocked by CORS.</footer>
+    </div>
+  </div>
+
+  <!-- sticky bottom bar (always visible/pinned by default) -->
+  <div id="stickyBar" class="sticky" role="region" aria-label="Playback sticky controls">
+    <button id="sPrev" class="control-btn ghost">⏮</button>
+    <button id="sPlay" class="control-btn">▶</button>
+    <button id="sPause" class="control-btn ghost">❚❚</button>
+    <button id="sStop" class="control-btn ghost">■</button>
+    <button id="sNext" class="control-btn ghost">⏭</button>
+    <div id="sStatus" class="small" style="margin-left:12px">Idle</div>
+    <button id="pinSticky" class="control-btn pin ghost" title="Unpin sticky bar">📌</button>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', ()=> {
+  // Element refs
+  const editor = document.getElementById('editor');
+  const rawArea = document.getElementById('rawArea');
+  const editToggle = document.getElementById('editToggle');
+  const renderBtn = document.getElementById('renderBtn');
+  const fetchBtn = document.getElementById('fetchBtn');
+  const siteSelect = document.getElementById('siteSelect');
+  const fetchStatus = document.getElementById('fetchStatus');
+
+  const voiceSelect = document.getElementById('voiceSelect');
+  const rateRange = document.getElementById('rateRange');
+  const rateNum = document.getElementById('rateNum');
+  const pitchRange = document.getElementById('pitchRange');
+  const pitchNum = document.getElementById('pitchNum');
+
+  const playBtn = document.getElementById('playBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const sampleBtn = document.getElementById('sampleBtn');
+  const playerStatus = document.getElementById('playerStatus');
+
+  const panelWidth = document.getElementById('panelWidth');
+  const panelPct = document.getElementById('panelPct');
+  const variantSelect = document.getElementById('variantSelect');
+  const fontSize = document.getElementById('fontSize');
+  const fontLabel = document.getElementById('fontLabel');
+
+  const speedPreset = document.getElementById('speedPreset');
+  const applyPreset = document.getElementById('applyPreset');
+
+  const stickyBar = document.getElementById('stickyBar');
+  const sPlay = document.getElementById('sPlay'), sPause = document.getElementById('sPause'), sStop = document.getElementById('sStop');
+  const sPrev = document.getElementById('sPrev'), sNext = document.getElementById('sNext'), sStatus = document.getElementById('sStatus');
+  const pinSticky = document.getElementById('pinSticky');
+
+  const STORE = {
+    THEME:'wnvr-theme-dark', VARIANT:'wnvr-variant', VOICE:'wnvr-voice', RATE:'wnvr-rate', PITCH:'wnvr-pitch',
+    PANEL:'wnvr-panel-width', LAST:'wnvr-last-text', FONT:'wnvr-font-size', STICKY_PIN:'wnvr-sticky-pin'
+  };
+
+  // state
+  const synth = window.speechSynthesis;
+  let voices = [], paragraphs = [], currentIndex = 0, autoAdvance = true;
+  let editMode = false; let stickyPinned = true; // pinned default
+  // load sticky pin state if user unpinned previously
+  if(localStorage.getItem(STORE.STICKY_PIN) === '0') stickyPinned = false;
+
+  // panel width
+  function setPanelWidth(p){ p = Math.max(60,Math.min(100,parseInt(p))); document.documentElement.style.setProperty('--panel-width', p+'%'); panelPct.textContent = p+'%'; panelWidth.value = p; localStorage.setItem(STORE.PANEL,p); }
+  panelWidth.addEventListener('input', ()=> setPanelWidth(panelWidth.value));
+  if(localStorage.getItem(STORE.PANEL)) setPanelWidth(localStorage.getItem(STORE.PANEL)); else setPanelWidth(panelWidth.value);
+
+  // variant & theme handling
+  function applyVariant(v){
+    if(v === 'dark'){ document.documentElement.setAttribute('data-theme','dark'); document.documentElement.removeAttribute('data-variant'); }
+    else { document.documentElement.removeAttribute('data-theme'); document.documentElement.setAttribute('data-variant', v); }
+    localStorage.setItem(STORE.VARIANT, v);
+  }
+  variantSelect.addEventListener('change', (e)=> applyVariant(e.target.value));
+  if(localStorage.getItem(STORE.VARIANT)) { variantSelect.value = localStorage.getItem(STORE.VARIANT); applyVariant(variantSelect.value); }
+
+  // font-size
+  function applyFont(sz){ sz = Math.max(14,Math.min(26,parseInt(sz))); document.documentElement.style.setProperty('--editor-font-size', sz+'px'); fontLabel.textContent = sz+'px'; fontSize.value = sz; localStorage.setItem(STORE.FONT, sz); }
+  fontSize.addEventListener('input', ()=> applyFont(fontSize.value));
+  if(localStorage.getItem(STORE.FONT)) applyFont(localStorage.getItem(STORE.FONT)); else applyFont(fontSize.value);
+
+  // voices population - robust
+  function populateVoices(){
+    voices = synth.getVoices() || [];
+    voiceSelect.innerHTML = '';
+    if(voices.length === 0){
+      const o = document.createElement('option'); o.textContent = 'Loading voices...'; o.value = ''; voiceSelect.appendChild(o);
+      return;
+    }
+    voices.forEach((v,i)=>{ const o = document.createElement('option'); o.value = i; o.textContent = `${v.name} — ${v.lang}`; voiceSelect.appendChild(o); });
+    const sv = localStorage.getItem(STORE.VOICE);
+    if(sv !== null && voices[parseInt(sv)]) voiceSelect.value = sv;
+  }
+  if(speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = populateVoices;
+  // fallback: try a few times if voices are slow to load
+  let voiceRetry = 0;
+  (function tryPopulate(){
+    populateVoices();
+    if((speechSynthesis.getVoices() || []).length === 0 && voiceRetry < 8){
+      voiceRetry++;
+      setTimeout(tryPopulate, 250);
+    }
+  })();
+
+  // sync speed/pitch
+  function setRateVal(v){ const val = parseFloat(v).toFixed(2); rateRange.value = val; rateNum.value = val; localStorage.setItem(STORE.RATE, val); }
+  function setPitchVal(v){ const val = parseFloat(v).toFixed(2); pitchRange.value = val; pitchNum.value = val; localStorage.setItem(STORE.PITCH, val); }
+  rateRange.addEventListener('input', e=> setRateVal(e.target.value));
+  rateNum.addEventListener('input', e=> setRateVal(Math.max(parseFloat(rateNum.min), Math.min(parseFloat(rateNum.max), parseFloat(e.target.value || rateRange.value)))));
+  pitchRange.addEventListener('input', e=> setPitchVal(e.target.value));
+  pitchNum.addEventListener('input', e=> setPitchVal(Math.max(parseFloat(pitchNum.min), Math.min(parseFloat(pitchNum.max), parseFloat(e.target.value || pitchRange.value)))));
+
+  // restore saved rate/pitch
+  if(localStorage.getItem(STORE.RATE)) setRateVal(localStorage.getItem(STORE.RATE));
+  if(localStorage.getItem(STORE.PITCH)) setPitchVal(localStorage.getItem(STORE.PITCH));
+
+  voiceSelect.addEventListener('change', ()=> localStorage.setItem(STORE.VOICE, voiceSelect.value));
+
+  // paragraph splitting & render
+  function splitToParagraphs(text){
+    const raw = text.split(/\n{1,}/).map(s=>s.trim()).filter(Boolean);
+    const out = [];
+    raw.forEach(p=>{
+      if(p.length <= 600) out.push(p);
+      else {
+        let start = 0;
+        while(start < p.length){
+          let chunk = p.slice(start, start + 500);
+          let m = chunk.match(/(.+[\.!\?])\s*$/);
+          if(m && start + m[0].length < p.length){ out.push(p.slice(start, start + m[0].length).trim()); start += m[0].length; }
+          else { out.push(chunk.trim()); start += 500; }
+        }
+      }
+    });
+    return out;
+  }
+  function renderFromText(raw){
+    paragraphs = splitToParagraphs(raw || '');
+    editor.innerHTML = '';
+    paragraphs.forEach((p,i)=>{
+      const d = document.createElement('div');
+      d.className = 'line';
+      d.textContent = p;
+      d.dataset.index = i;
+      d.addEventListener('click', ()=> startFrom(i));
+      editor.appendChild(d);
+    });
+  }
+
+  // edit toggle
+  editToggle.addEventListener('click', ()=>{
+    if(!editMode){
+      rawArea.style.display = 'block';
+      rawArea.value = paragraphs && paragraphs.length ? paragraphs.join('\n\n') : editor.innerText || '';
+      editor.style.display = 'none';
+      renderBtn.style.display = 'inline-block';
+      editToggle.textContent = 'Done';
+      editMode = true;
+    } else {
+      const txt = rawArea.value;
+      rawArea.style.display = 'none';
+      renderBtn.style.display = 'none';
+      editor.style.display = 'block';
+      renderFromText(txt);
+      localStorage.setItem(STORE.LAST, txt);
+      editToggle.textContent = 'Edit';
+      editMode = false;
+    }
+  });
+  renderBtn.addEventListener('click', ()=> {
+    const txt = rawArea.value;
+    rawArea.style.display='none'; renderBtn.style.display='none'; editor.style.display='block';
+    renderFromText(txt);
+    localStorage.setItem(STORE.LAST, txt);
+    editToggle.textContent='Edit'; editMode=false;
+  });
+
+  // paste handler - auto-render or fetch if url
+  editor.addEventListener('paste', (e)=>{
+    e.preventDefault();
+    const txt = (e.clipboardData || window.clipboardData).getData('text') || '';
+    if(!txt) return;
+    if(txt.trim().startsWith('http')) { editor.innerText = txt.trim(); tryFetch(txt.trim()); return; }
+    renderFromText(txt);
+    localStorage.setItem(STORE.LAST, txt);
+  });
+
+  // live typing re-split after pause
+  let typingTimer = null;
+  editor.addEventListener('input', ()=>{
+    if(editMode) return;
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(()=>{
+      const txt = editor.innerText;
+      if(txt.trim().length === 0){ editor.innerHTML=''; paragraphs=[]; return; }
+      renderFromText(txt);
+      localStorage.setItem(STORE.LAST, txt);
+    },700);
+  });
+
+  // fetch helper
+  const extractors = {
+    webnovel:['div.chapter-content','div#chapterContent','div#novelContent'],
+    royalroad:['div.chapter-inner.text','div.chapter-content','article'],
+    scribblehub:['div#chapter_content','div.chapter-inner','div#chapter'],
+    wuxiaworld:['div.entry-content','div#chapterContent'],
+    auto:['div.chapter-content','div#content','div#chapter','article','div.entry-content']
+  };
+  async function tryFetch(url){
+    fetchStatus.textContent = 'Fetching...';
+    try{
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const txt = await res.text();
+      const doc = new DOMParser().parseFromString(txt,'text/html');
+      const preset = siteSelect.value || 'auto';
+      const sels = extractors[preset] || extractors.auto;
+      let found = '';
+      for(const s of sels){
+        const el = doc.querySelector(s);
+        if(el && el.innerText && el.innerText.trim().length > 30){ found = el.innerText; break; }
+      }
+      if(!found){
+        const divs = Array.from(doc.querySelectorAll('div'));
+        if(divs.length){ divs.sort((a,b)=> b.innerText.length - a.innerText.length); if(divs[0].innerText.trim().length > 50) found = divs[0].innerText; }
+      }
+      if(found && found.trim().length > 50){ renderFromText(found.trim()); localStorage.setItem(STORE.LAST, found.trim()); fetchStatus.textContent='Loaded'; }
+      else fetchStatus.textContent='No large content; paste manually';
+    } catch(e){ console.error(e); fetchStatus.textContent='Fetch failed (CORS or network)'; }
+  }
+  fetchBtn.addEventListener('click', ()=>{
+    const v = editor.innerText.trim();
+    const url = v.startsWith('http') ? v : prompt('Paste chapter URL (starting with http)') || '';
+    if(!url) return;
+    tryFetch(url);
+  });
+
+  // speech + sticky
+  function showSticky(show){ if(show || stickyPinned) stickyBar.classList.add('visible'); else stickyBar.classList.remove('visible'); }
+  function pinToggle(){ stickyPinned = !stickyPinned; pinSticky.textContent = stickyPinned ? '📌' : '📌'; localStorage.setItem(STORE.STICKY_PIN, stickyPinned ? '1' : '0'); showSticky(stickyPinned); }
+  pinSticky.addEventListener('click', ()=> pinToggle());
+  // ensure sticky always visible initially (user wanted always visible)
+  showSticky(true);
+
+  function populateVoicesOnce(){ populateVoices(); }
+  function populateVoices(){
+    voices = synth.getVoices() || [];
+    voiceSelect.innerHTML = '';
+    if(voices.length === 0){
+      const o = document.createElement('option'); o.textContent = 'Loading voices...'; o.value=''; voiceSelect.appendChild(o);
+      return;
+    }
+    voices.forEach((v,i)=>{ const o = document.createElement('option'); o.value=i; o.textContent=`${v.name} — ${v.lang}`; voiceSelect.appendChild(o); });
+    const sv = localStorage.getItem(STORE.VOICE);
+    if(sv !== null && voices[parseInt(sv)]) voiceSelect.value = sv;
+  }
+  if(speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = populateVoices;
+  // retry population a few times
+  (function tryPopulate(n){
+    populateVoices();
+    if((speechSynthesis.getVoices() || []).length === 0 && n < 8) setTimeout(()=> tryPopulate(n+1), 300);
+  })(0);
+
+  // speaking functions
+  function speakIndex(i){
+    if(i<0||i>=paragraphs.length) return;
+    speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(paragraphs[i]);
+    const v = voices[voiceSelect.value];
+    if(v) utt.voice = v;
+    utt.rate = parseFloat(rateNum.value);
+    utt.pitch = parseFloat(pitchNum.value);
+    utt.onstart = ()=> { playerStatus.textContent='Playing'; sStatus.textContent='Playing'; highlight(i); showSticky(true); };
+    utt.onend = ()=> { playerStatus.textContent='Idle'; sStatus.textContent='Idle'; if(i+1<paragraphs.length){ currentIndex=i+1; setTimeout(()=> speakIndex(currentIndex), 90); } else { if(!stickyPinned) showSticky(false); } };
+    utt.onerror = (e)=> { console.error(e); playerStatus.textContent='Error'; sStatus.textContent='Error'; if(!stickyPinned) showSticky(false); };
+    currentIndex = i;
+    speechSynthesis.speak(utt);
+  }
+  function highlight(i){
+    editor.querySelectorAll('.line').forEach(el=>el.classList.remove('current'));
+    const el = editor.querySelector(`.line[data-index="${i}"]`);
+    if(el){ el.classList.add('current'); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+  }
+  function startFrom(i){ speechSynthesis.cancel(); setTimeout(()=> speakIndex(i), 80); }
+
+  // control bindings (main -> sticky sync)
+  playBtn.addEventListener('click', ()=> {
+    if(!paragraphs.length){ renderFromText(editor.innerText || ''); if(!paragraphs.length) return alert('No text to read. Paste or fetch.'); }
+    if(speechSynthesis.paused){ speechSynthesis.resume(); return; }
+    if(speechSynthesis.speaking) return;
+    speakIndex(currentIndex);
+  });
+  sPlay.addEventListener('click', ()=> playBtn.click());
+
+  pauseBtn.addEventListener('click', ()=> {
+    if(speechSynthesis.speaking && !speechSynthesis.paused) speechSynthesis.pause();
+    else if(speechSynthesis.paused) speechSynthesis.resume();
+  });
+  sPause.addEventListener('click', ()=> pauseBtn.click());
+
+  stopBtn.addEventListener('click', ()=> { speechSynthesis.cancel(); playerStatus.textContent='Stopped'; sStatus.textContent='Stopped'; currentIndex=0; editor.querySelectorAll('.line').forEach(l=>l.classList.remove('current')); if(!stickyPinned) showSticky(false); });
+  sStop.addEventListener('click', ()=> stopBtn.click());
+
+  prevBtn.addEventListener('click', ()=> { if(currentIndex>0) startFrom(currentIndex-1); });
+  sPrev.addEventListener('click', ()=> prevBtn.click());
+  nextBtn.addEventListener('click', ()=> { if(currentIndex+1<paragraphs.length) startFrom(currentIndex+1); });
+  sNext.addEventListener('click', ()=> nextBtn.click());
+
+  sampleBtn.addEventListener('click', ()=> {
+    const sample = 'This is a quick sample. Adjust speed and pitch to audition the voice.';
+    const s = new SpeechSynthesisUtterance(sample);
+    const v = voices[voiceSelect.value];
+    if(v) s.voice = v;
+    s.rate = parseFloat(rateNum.value);
+    s.pitch = parseFloat(pitchNum.value);
+    speechSynthesis.cancel(); speechSynthesis.speak(s);
+  });
+
+  // keyboard shortcuts (desktop)
+  document.addEventListener('keydown', (e)=>{
+    if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+    if(e.code === 'Space'){ e.preventDefault(); if(speechSynthesis.speaking && !speechSynthesis.paused) speechSynthesis.pause(); else if(speechSynthesis.paused) speechSynthesis.resume(); else playBtn.click(); }
+    if(e.key === 's' || e.key === 'S') stopBtn.click();
+    if(e.key === 'ArrowUp' || e.key === 'ArrowDown'){
+      e.preventDefault();
+      let delta = e.shiftKey ? 0.10 : 0.01;
+      if(e.key === 'ArrowDown') delta = -delta;
+      let nv = Math.min(parseFloat(rateRange.max), Math.max(parseFloat(rateRange.min), parseFloat(rateNum.value) + delta));
+      setRateVal(nv);
+    }
+  });
+
+  // initial render from saved text
+  if(localStorage.getItem(STORE.LAST)) renderFromText(localStorage.getItem(STORE.LAST));
+
+  // speed preset
+  applyPreset.addEventListener('click', ()=> { if(!speedPreset.value) return; setRateVal(speedPreset.value); });
+
+  // small safety: if voices are not loaded after 3s, try one more time (helps some Android WebViews)
+  setTimeout(()=> { if((speechSynthesis.getVoices()||[]).length === 0) populateVoices(); }, 3000);
+}); // DOMContentLoaded end
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js')
+    .then(() => console.log('Service Worker registered'))
+    .catch(err => console.warn('SW failed', err));
+}
+</script>
+
+</body>
+</html>
